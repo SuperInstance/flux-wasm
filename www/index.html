@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLUX WebAssembly VM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .left-panel, .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .card h2 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+
+        button.primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        button.secondary:hover {
+            background: #5a6268;
+        }
+
+        button.success {
+            background: #28a745;
+            color: white;
+        }
+
+        button.success:hover {
+            background: #218838;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .output {
+            background: #212529;
+            color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .registers {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .register {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .register.changed {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+
+        .register-name {
+            font-weight: bold;
+            color: #495057;
+            font-size: 12px;
+        }
+
+        .register-value {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: #212529;
+            margin-top: 5px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .example-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .example-btn {
+            padding: 8px 16px;
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            background: #dee2e6;
+            border-color: #adb5bd;
+        }
+
+        .messages {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .message {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .message-payload {
+            color: #6c757d;
+            font-family: 'Courier New', monospace;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .flags {
+            display: flex;
+            gap: 10px;
+        }
+
+        .flag {
+            padding: 5px 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .flag.active {
+            background: #28a745;
+            color: white;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 FLUX WebAssembly VM</h1>
+            <p>Run FLUX bytecode in your browser with natural language compilation</p>
+        </header>
+
+        <div id="loading" class="loading">
+            Loading WebAssembly module...
+        </div>
+
+        <div id="app" style="display: none;">
+            <div class="main-content">
+                <div class="left-panel">
+                    <div class="card">
+                        <h2>📝 Input</h2>
+                        <div class="tabs">
+                            <button class="tab active" data-tab="assembly">Assembly</button>
+                            <button class="tab" data-tab="natural">Natural Language</button>
+                            <button class="tab" data-tab="hex">Hex Bytecode</button>
+                        </div>
+                        <div id="assembly-tab" class="tab-content active">
+                            <textarea id="asm-input" placeholder="Enter FLUX assembly code...
+Example:
+MOVI R0, 42
+MOVI R1, 10
+ADD R0, R1
+HALT"></textarea>
+                        </div>
+                        <div id="natural-tab" class="tab-content">
+                            <textarea id="natural-input" placeholder="Enter natural language or markdown...
+Examples:
+- compute 3 + 4
+- factorial of 5
+- sum 1 to 100
+- count from 1 to 10"></textarea>
+                        </div>
+                        <div id="hex-tab" class="tab-content">
+                            <textarea id="hex-input" placeholder="Enter hex bytecode...
+Example:
+1900000000 1a0000000a 000000 54"></textarea>
+                        </div>
+                        <div class="button-group" style="margin-top: 15px;">
+                            <button class="primary" id="run-btn">▶ Run</button>
+                            <button class="secondary" id="step-btn">⏭ Step</button>
+                            <button class="secondary" id="reset-btn">↺ Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>📚 Examples</h2>
+                        <div class="example-buttons">
+                            <button class="example-btn" data-example="add">Addition</button>
+                            <button class="example-btn" data-example="factorial">Factorial</button>
+                            <button class="example-btn" data-example="sum">Sum Loop</button>
+                            <button class="example-btn" data-example="fibonacci">Fibonacci</button>
+                            <button class="example-btn" data-example="loop">Simple Loop</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>📤 Output</h2>
+                        <div class="tabs">
+                            <button class="tab active" data-tab="output-console">Console</button>
+                            <button class="tab" data-tab="output-bytecode">Bytecode</button>
+                            <button class="tab" data-tab="output-disasm">Disassembly</button>
+                        </div>
+                        <div id="output-console-tab" class="tab-content active">
+                            <div id="console-output" class="output">Ready</div>
+                        </div>
+                        <div id="output-bytecode-tab" class="tab-content">
+                            <div id="bytecode-output" class="output">No bytecode loaded</div>
+                        </div>
+                        <div id="output-disasm-tab" class="tab-content">
+                            <div id="disasm-output" class="output">No program loaded</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="card">
+                        <h2>📊 Statistics</h2>
+                        <div class="stats">
+                            <div class="stat">
+                                <div class="stat-value" id="cycle-count">0</div>
+                                <div class="stat-label">Cycles</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value" id="pc-value">0</div>
+                                <div class="stat-label">PC</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value" id="sp-value">0</div>
+                                <div class="stat-label">SP</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value" id="status-value">HALTED</div>
+                                <div class="stat-label">Status</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>🔢 Registers</h2>
+                        <div class="flags" style="margin-bottom: 15px;">
+                            <span class="flag" id="flag-zero">Z</span>
+                            <span class="flag" id="flag-carry">C</span>
+                            <span class="flag" id="flag-negative">N</span>
+                            <span class="flag" id="flag-overflow">V</span>
+                        </div>
+                        <div class="registers" id="registers">
+                            <!-- Registers will be populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>💬 Agent Messages (A2A)</h2>
+                        <div class="button-group" style="margin-bottom: 10px;">
+                            <button class="success" id="send-msg-btn">Send Test Message</button>
+                            <button class="secondary" id="clear-msg-btn">Clear</button>
+                        </div>
+                        <div id="messages" class="messages">
+                            <div style="color: #6c757d; text-align: center;">No messages</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>ℹ️ Opcodes</h2>
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            <div id="opcode-list" style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                <!-- Opcodes will be populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { FluxWasmVM, FluxUtils } from './pkg/flux_wasm.js';
+
+        let vm;
+        let previousRegisters = new Array(16).fill(0);
+
+        const examples = {
+            add: `; Add two numbers
+MOVI R0, 42
+MOVI R1, 10
+ADD R0, R1
+HALT`,
+            factorial: `; Factorial of 5
+MOVI R0, 5       ; n
+MOVI R1, 1       ; result
+MOVI R2, 1       ; counter
+loop:
+CMP R0, R2
+JL end
+MUL R1, R2
+INC R2
+JMP loop
+end:
+MOV R0, R1
+HALT`,
+            sum: `; Sum 1 to 10
+MOVI R0, 0
+MOVI R1, 1
+MOVI R2, 10
+loop:
+CMP R1, R2
+JG end
+ADD R0, R1
+INC R1
+JMP loop
+end:
+HALT`,
+            fibonacci: `; Fibonacci(7)
+MOVI R0, 0       ; F(0)
+MOVI R1, 1       ; F(1)
+MOVI R2, 7       ; n
+MOVI R3, 2       ; counter
+CMP R2, 0
+JE result0
+CMP R2, 1
+JE result1
+loop:
+CMP R3, R2
+JG end
+MOV R4, R0
+ADD R0, R1
+MOV R1, R4
+INC R3
+JMP loop
+result0:
+HALT
+result1:
+MOV R0, R1
+end:
+HALT`,
+            loop: `; Simple loop 5 times
+MOVI R0, 5
+loop:
+CMP R0, 0
+JE end
+DEC R0
+JMP loop
+end:
+HALT`
+        };
+
+        const naturalExamples = {
+            add: 'compute 42 + 10',
+            factorial: 'factorial of 5',
+            sum: 'sum 1 to 10',
+            fibonacci: 'fibonacci 7',
+            loop: 'loop 5 times'
+        };
+
+        async function initApp() {
+            try {
+                await init();
+                vm = new FluxWasmVM();
+                initializeUI();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                log('FLUX WASM VM initialized successfully!');
+            } catch (error) {
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: #dc3545;">Failed to load WebAssembly module:</p>
+                    <pre style="color: #dc3545; text-align: left;">${error}</pre>
+                `;
+            }
+        }
+
+        function initializeUI() {
+            // Initialize registers display
+            updateRegisters();
+            updateStats();
+
+            // Populate opcode list
+            const opcodes = vm.get_opcode_list();
+            const opcodeList = document.getElementById('opcode-list');
+            opcodes.forEach(op => {
+                const span = document.createElement('span');
+                span.className = 'example-btn';
+                span.textContent = `${op.name} (0x${op.code.toString(16)})`;
+                span.style.fontSize = '11px';
+                opcodeList.appendChild(span);
+            });
+
+            // Tab handling
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    const parent = tab.closest('.card');
+
+                    parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    parent.querySelector(`#${tabName}-tab`).classList.add('active');
+                });
+            });
+
+            // Button handlers
+            document.getElementById('run-btn').addEventListener('click', runProgram);
+            document.getElementById('step-btn').addEventListener('click', stepProgram);
+            document.getElementById('reset-btn').addEventListener('click', resetVM);
+            document.getElementById('send-msg-btn').addEventListener('click', sendTestMessage);
+            document.getElementById('clear-msg-btn').addEventListener('click', clearMessages);
+
+            // Example buttons
+            document.querySelectorAll('.example-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const example = btn.dataset.example;
+                    const activeTab = document.querySelector('.tab.active').dataset.tab;
+                    if (activeTab === 'natural') {
+                        document.getElementById('natural-input').value = naturalExamples[example] || examples[example];
+                    } else {
+                        document.getElementById('asm-input').value = examples[example];
+                    }
+                });
+            });
+        }
+
+        function log(message) {
+            const console = document.getElementById('console-output');
+            console.textContent += message + '\n';
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('console-output').textContent = '';
+        }
+
+        function updateRegisters() {
+            const registersDiv = document.getElementById('registers');
+            registersDiv.innerHTML = '';
+
+            for (let i = 0; i < 16; i++) {
+                const value = vm.read_reg(i);
+                const changed = value !== previousRegisters[i];
+                previousRegisters[i] = value;
+
+                const reg = document.createElement('div');
+                reg.className = 'register' + (changed ? ' changed' : '');
+                reg.innerHTML = `
+                    <div class="register-name">R${i}</div>
+                    <div class="register-value">${value}</div>
+                `;
+                registersDiv.appendChild(reg);
+            }
+
+            // Update flags
+            const stats = vm.get_stats();
+            document.getElementById('flag-zero').classList.toggle('active', false);
+            document.getElementById('flag-carry').classList.toggle('active', false);
+            document.getElementById('flag-negative').classList.toggle('active', false);
+            document.getElementById('flag-overflow').classList.toggle('active', false);
+        }
+
+        function updateStats() {
+            document.getElementById('cycle-count').textContent = vm.get_cycles();
+            document.getElementById('pc-value').textContent = '0x' + vm.get_pc().toString(16).padStart(4, '0');
+            document.getElementById('sp-value').textContent = '0x' + vm.get_sp().toString(16).padStart(4, '0');
+            document.getElementById('status-value').textContent = vm.is_halted() ? 'HALTED' : 'RUNNING';
+        }
+
+        async function runProgram() {
+            clearConsole();
+            log('Running program...');
+
+            try {
+                const activeTab = document.querySelector('.tab.active').dataset.tab;
+
+                if (activeTab === 'hex') {
+                    const hex = document.getElementById('hex-input').value.trim();
+                    vm.from_hex(hex);
+                    log('Loaded hex bytecode');
+                } else if (activeTab === 'natural') {
+                    const source = document.getElementById('natural-input').value;
+                    const bytecode = vm.interpret_markdown(source);
+                    if (bytecode.error) {
+                        throw new Error(bytecode.error);
+                    }
+                    vm.load(bytecode);
+                    log('Compiled and loaded natural language program');
+                } else {
+                    const source = document.getElementById('asm-input').value;
+                    const bytecode = vm.assemble(source);
+                    if (bytecode.error) {
+                        throw new Error(bytecode.error);
+                    }
+                    vm.load(bytecode);
+                    log('Assembled and loaded program');
+                }
+
+                // Show bytecode
+                const bytecode = vm.get_memory();
+                const hexOutput = Array.from(bytecode)
+                    .slice(0, 256)
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join(' ');
+                document.getElementById('bytecode-output').textContent = hexOutput || '(empty)';
+
+                // Show disassembly
+                const disasm = vm.disassemble(20);
+                document.getElementById('disasm-output').textContent = disasm.join('\n') || '(empty)';
+
+                // Run
+                const cycles = vm.run();
+                log(`Program completed in ${cycles} cycles`);
+                log(`Result: R0 = ${vm.read_reg(0)}`);
+
+                updateRegisters();
+                updateStats();
+
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        async function stepProgram() {
+            try {
+                const activeTab = document.querySelector('.tab.active').dataset.tab;
+
+                if (!vm.is_halted() && vm.get_cycles() > 0) {
+                    // Already running, just step
+                    const result = vm.step_debug();
+                    log(`Step: PC 0x${result.pcBefore.toString(16)} -> 0x${result.pcAfter.toString(16)}`);
+                } else {
+                    // Load program first
+                    if (activeTab === 'hex') {
+                        const hex = document.getElementById('hex-input').value.trim();
+                        vm.from_hex(hex);
+                    } else if (activeTab === 'natural') {
+                        const source = document.getElementById('natural-input').value;
+                        const bytecode = vm.interpret_markdown(source);
+                        vm.load(bytecode);
+                    } else {
+                        const source = document.getElementById('asm-input').value;
+                        const bytecode = vm.assemble(source);
+                        vm.load(bytecode);
+                    }
+
+                    // Show disassembly
+                    const disasm = vm.disassemble(20);
+                    document.getElementById('disasm-output').textContent = disasm.join('\n');
+
+                    // First step
+                    vm.step();
+                    log('Program loaded, stepped first instruction');
+                }
+
+                updateRegisters();
+                updateStats();
+
+            } catch (error) {
+                log(`Error: ${error.message}`);
+            }
+        }
+
+        function resetVM() {
+            vm.reset();
+            previousRegisters = new Array(16).fill(0);
+            updateRegisters();
+            updateStats();
+            clearConsole();
+            log('VM reset');
+        }
+
+        function sendTestMessage() {
+            vm.send_tell('agent-2', 'Hello from agent-1!');
+            vm.broadcast('Broadcast message!');
+            pollMessages();
+        }
+
+        function pollMessages() {
+            const messages = vm.poll_messages();
+            const container = document.getElementById('messages');
+
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="color: #6c757d; text-align: center;">No messages</div>';
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => `
+                <div class="message">
+                    <div class="message-header">
+                        <span>${msg.from} → ${msg.to}</span>
+                    </div>
+                    <div class="message-payload">${msg.payload}</div>
+                </div>
+            `).join('');
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '<div style="color: #6c757d; text-align: center;">No messages</div>';
+        }
+
+        // Initialize
+        initApp();
+    </script>
+</body>
+</html>
