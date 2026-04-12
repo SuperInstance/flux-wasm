@@ -1,0 +1,12 @@
+{
+  "name": "flux-runtime-wasm",
+  "version": "1.0.0",
+  "description": "FLUX VM WebAssembly target — browser-based agent bytecode execution",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx asc assembly/index.ts --outFile build/flux.wasm --optimize",
+    "test": "node test.js"
+  },
+  "keywords": ["flux", "wasm", "vm", "agent", "bytecode"],
+  "license": "MIT"
+}
